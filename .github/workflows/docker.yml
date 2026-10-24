@@ -1,0 +1,30 @@
+name: Docker Build and Test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t myapp:${{ github.sha }} .
+
+      - name: Run container and verify with curl
+        run: |
+          docker run -d --name myapp-test -p 8080:8080 myapp:${{ github.sha }}
+          trap 'docker logs myapp-test; docker rm -f myapp-test' EXIT
+          for i in $(seq 1 20); do
+            if curl --fail http://localhost:8080/; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs myapp-test
+          exit 1
